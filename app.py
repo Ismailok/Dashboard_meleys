@@ -89,6 +89,12 @@ st.sidebar.header("🧠 Inférence")
 selected_inference_model = st.sidebar.selectbox("Choisir un modèle pour l'inférence", ["Vermax", "Meleys"])
 uploaded_file = st.sidebar.file_uploader("Charger une image pour l'inférence", type=["png", "jpg", "jpeg"])
 
+# Map des IDs des modèles
+model_ids = {
+    "Vermax": "13a7703d7db64531aa1130cdb05855a8",
+    "Meleys": "53ca430a698741c09ba4aa538de81628"
+}
+
 if uploaded_file is not None:
     from PIL import Image
     import torch
@@ -99,25 +105,29 @@ if uploaded_file is not None:
     st.image(image, caption="Image chargée pour l'inférence", use_column_width=True)
 
     # Charger le modèle
-    model_path = f"./mlruns/1/{selected_inference_model}_model/artifacts/model"
-    model = mlflow.pytorch.load_model(model_path)
-    model.eval()
+    model_id = model_ids[selected_inference_model]
+    model_path = f"./mlruns/1/{model_id}/artifacts/model"
+    try:
+        model = mlflow.pytorch.load_model(model_path)
+        model.eval()
 
-    # Prétraiter l'image
-    from torchvision import transforms
-    preprocess = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
-    ])
-    input_tensor = preprocess(image).unsqueeze(0)
+        # Prétraiter l'image
+        from torchvision import transforms
+        preprocess = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
+        input_tensor = preprocess(image).unsqueeze(0)
 
-    # Faire l'inférence
-    with torch.no_grad():
-        output = model(input_tensor)
-        prediction = torch.argmax(output, dim=1).item()
+        # Faire l'inférence
+        with torch.no_grad():
+            output = model(input_tensor)
+            prediction = torch.argmax(output, dim=1).item()
 
-    st.write(f"Prédiction : {'Healthy' if prediction == 0 else 'Parkinson'}")
+        st.write(f"Prédiction : {'Healthy' if prediction == 0 else 'Parkinson'}")
+    except OSError as e:
+        st.error(f"Erreur lors du chargement du modèle : {e}")
 
 # 📌 Composante d'analyse
 st.header("📊 Analyse des résultats")

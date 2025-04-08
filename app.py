@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import numpy as np
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, matthews_corrcoef
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -99,6 +99,15 @@ if uploaded_file is not None:
     from PIL import Image
     import torch
     import mlflow.pytorch
+    from monai.transforms import (
+        Compose,
+        LoadImage,
+        EnsureChannelFirst,
+        ScaleIntensity,
+        Resize,
+        EnsureType,
+        Lambda,
+    )
 
     # Charger l'image
     image = Image.open(uploaded_file)
@@ -111,16 +120,21 @@ if uploaded_file is not None:
         model = mlflow.pytorch.load_model(model_path)
         model.eval()
 
-        # Prétraiter l'image
-        from torchvision import transforms
-        preprocess = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5])
+        # Prétraiter l'image avec les mêmes transformations que dans le test
+        preprocess = Compose([
+            LoadImage(image_only=True),
+            EnsureChannelFirst(),
+            ScaleIntensity(),
+            Resize((256, 256)),  # Redimensionner l'image à 256x256
+            EnsureType(),
+            Lambda(lambda x: x[:3, :, :] if x.shape[0] == 4 else x),  # S'assurer que l'image a 3 canaux
         ])
-        input_tensor = preprocess(image).unsqueeze(0)
+        input_tensor = preprocess(uploaded_file)
+        input_tensor = input_tensor.unsqueeze(0)  # Ajouter une dimension batch
 
         # Faire l'inférence
+        device = torch.device("cpu")
+        input_tensor = input_tensor.to(device)
         with torch.no_grad():
             output = model(input_tensor)
             prediction = torch.argmax(output, dim=1).item()
@@ -132,17 +146,31 @@ if uploaded_file is not None:
 # 📌 Composante d'analyse
 st.header("📊 Analyse des résultats")
 if st.button("Afficher l'analyse des résultats"):
+    # Ajouter dynamiquement la colonne 'true_label' si elle n'existe pas
+    if "true_label" not in df_test_predictions.columns:
+        # Supposons que les 30 premières lignes sont "healthy" et les 30 dernières sont "parkinson"
+        num_healthy = 30
+        num_parkinson = 30
+        df_test_predictions["true_label"] = ["healthy"] * num_healthy + ["parkinson"] * num_parkinson
+
+    # Extraire les vraies valeurs et les prédictions
     y_true = df_test_predictions["true_label"]
     y_pred = df_test_predictions["prediction"]
 
     # Matrice de confusion
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=["healthy", "parkinson"])
     st.subheader("Matrice de confusion")
     fig, ax = plt.subplots()
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Healthy", "Parkinson"], yticklabels=["Healthy", "Parkinson"])
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["healthy", "parkinson"], yticklabels=["healthy", "parkinson"])
     st.pyplot(fig)
 
     # Rapport de classification
     st.subheader("Rapport de classification")
-    report = classification_report(y_true, y_pred, target_names=["Healthy", "Parkinson"], output_dict=True)
+    report = classification_report(y_true, y_pred, target_names=["healthy", "parkinson"], output_dict=True)
     st.dataframe(pd.DataFrame(report).transpose())
+
+    # Afficher des métriques supplémentaires
+    accuracy = accuracy_score(y_true, y_pred)
+    mcc = matthews_corrcoef(y_true, y_pred)
+    st.write(f"**Exactitude (Accuracy)** : {round(accuracy * 100, 2)}%")
+    st.write(f"**MCC (Matthews Correlation Coefficient)** : {round(mcc, 2)}")

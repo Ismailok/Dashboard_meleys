@@ -97,11 +97,11 @@ model_ids = {
 
 if uploaded_file is not None:
     from PIL import Image
+    import numpy as np
     import torch
     import mlflow.pytorch
     from monai.transforms import (
         Compose,
-        LoadImage,
         EnsureChannelFirst,
         ScaleIntensity,
         Resize,
@@ -113,6 +113,9 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Image chargée pour l'inférence", use_column_width=True)
 
+    # Convertir l'image en tableau NumPy
+    image_np = np.array(image)
+
     # Charger le modèle
     model_id = model_ids[selected_inference_model]
     model_path = f"./mlruns/1/{model_id}/artifacts/model"
@@ -122,15 +125,14 @@ if uploaded_file is not None:
 
         # Prétraiter l'image avec les mêmes transformations que dans le test
         preprocess = Compose([
-            LoadImage(image_only=True),
             EnsureChannelFirst(),
             ScaleIntensity(),
             Resize((256, 256)),  # Redimensionner l'image à 256x256
             EnsureType(),
             Lambda(lambda x: x[:3, :, :] if x.shape[0] == 4 else x),  # S'assurer que l'image a 3 canaux
         ])
-        input_tensor = preprocess(uploaded_file)
-        input_tensor = input_tensor.unsqueeze(0)  # Ajouter une dimension batch
+        input_tensor = preprocess(image_np)
+        input_tensor = torch.unsqueeze(input_tensor, 0)  # Ajouter une dimension batch
 
         # Faire l'inférence
         device = torch.device("cpu")
@@ -148,9 +150,10 @@ st.header("📊 Analyse des résultats")
 if st.button("Afficher l'analyse des résultats"):
     # Ajouter dynamiquement la colonne 'true_label' si elle n'existe pas
     if "true_label" not in df_test_predictions.columns:
-        # Supposons que les 30 premières lignes sont "healthy" et les 30 dernières sont "parkinson"
-        num_healthy = 30
-        num_parkinson = 30
+        # Calculer dynamiquement le nombre d'exemples pour chaque classe
+        num_samples = len(df_test_predictions)
+        num_healthy = num_samples // 2
+        num_parkinson = num_samples - num_healthy
         df_test_predictions["true_label"] = ["healthy"] * num_healthy + ["parkinson"] * num_parkinson
 
     # Extraire les vraies valeurs et les prédictions

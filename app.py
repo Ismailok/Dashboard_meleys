@@ -60,6 +60,25 @@ st.subheader("📈 Distribution des métriques")
 fig = px.histogram(df_metrics_filtered, x="key", y="value", color="key", barmode="group")
 st.plotly_chart(fig)
 
+# 📊 Graphique des métriques
+st.subheader("📈 Courbes des métriques")
+
+# Filtrer les métriques pertinentes
+metrics_to_plot = ["train_loss", "val_auc", "val_accuracy"]
+df_metrics_filtered_plot = df_metrics_filtered[df_metrics_filtered["key"].isin(metrics_to_plot)]
+
+# Tracer les courbes
+fig = px.line(
+    df_metrics_filtered_plot,
+    x="timestamp",  # Utiliser le timestamp pour l'axe X
+    y="value",      # Valeur des métriques pour l'axe Y
+    color="key",    # Différencier les courbes par la clé (métrique)
+    title="Évolution des métriques au cours du temps",
+    labels={"timestamp": "Temps", "value": "Valeur", "key": "Métrique"}
+)
+
+st.plotly_chart(fig)
+
 # 📌 Afficher les métriques
 st.subheader("📋 Metrics enregistrées")
 st.dataframe(df_metrics_filtered)

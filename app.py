@@ -56,9 +56,9 @@ df_params_filtered = df_params[df_params["run_uuid"].isin(df_runs_filtered[df_ru
 df_runs_filtered = df_runs_filtered[df_runs_filtered["name"] == selected_model]
 
 # 📊 Graphique des métriques
-st.subheader("📈 Distribution des métriques")
-fig = px.histogram(df_metrics_filtered, x="key", y="value", color="key", barmode="group")
-st.plotly_chart(fig)
+# st.subheader("📈 Distribution des métriques")
+# fig = px.histogram(df_metrics_filtered, x="key", y="value", color="key", barmode="group")
+# st.plotly_chart(fig)
 
 # 📊 Graphique des métriques
 st.subheader("📈 Courbes des métriques")
@@ -70,7 +70,7 @@ df_metrics_filtered_plot = df_metrics_filtered[df_metrics_filtered["key"].isin(m
 # Tracer les courbes
 fig = px.line(
     df_metrics_filtered_plot,
-    x="timestamp",  # Utiliser le timestamp pour l'axe X
+    x="step",  # Utiliser le timestamp pour l'axe X
     y="value",      # Valeur des métriques pour l'axe Y
     color="key",    # Différencier les courbes par la clé (métrique)
     title="Évolution des métriques au cours du temps",

@@ -73,7 +73,7 @@ fig = px.line(
     x="step",  # Utiliser le timestamp pour l'axe X
     y="value",      # Valeur des métriques pour l'axe Y
     color="key",    # Différencier les courbes par la clé (métrique)
-    title="Évolution des métriques au cours du temps",
+    title="Évolution des métriques pendant l'entraînement",
     labels={"timestamp": "Temps", "value": "Valeur", "key": "Métrique"}
 )
 

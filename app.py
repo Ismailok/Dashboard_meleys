@@ -6,7 +6,7 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-imprt os
+import os
 
 try:
     import plotly.express as px

@@ -102,6 +102,7 @@ if uploaded_file is not None:
     import mlflow.pytorch
     from monai.transforms import (
         Compose,
+        LoadImage,
         EnsureChannelFirst,
         ScaleIntensity,
         Resize,
@@ -113,8 +114,9 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")  # Convertir en RGB pour s'assurer qu'il y a 3 canaux
     st.image(image, caption="Image chargée pour l'inférence", use_column_width=True)
 
-    # Convertir l'image en tableau NumPy
-    image_np = np.array(image)
+    # Sauvegarder temporairement l'image pour utiliser LoadImage
+    temp_image_path = "temp_image.png"
+    image.save(temp_image_path)
 
     # Charger le modèle
     model_id = model_ids[selected_inference_model]
@@ -125,15 +127,16 @@ if uploaded_file is not None:
 
         # Prétraiter l'image avec les mêmes transformations que dans le test
         preprocess = Compose([
-            EnsureChannelFirst(),  # Convertir (H, W, C) en (C, H, W)
-            ScaleIntensity(),      # Normaliser les intensités des pixels
-            Resize((256, 256)),    # Redimensionner l'image à 256x256
-            EnsureType(),          # S'assurer que l'image est un tenseur PyTorch
+            LoadImage(image_only=True),  # Charger l'image depuis le chemin
+            EnsureChannelFirst(),       # Convertir (H, W, C) en (C, H, W)
+            ScaleIntensity(),           # Normaliser les intensités des pixels
+            Resize((256, 256)),         # Redimensionner l'image à 256x256
+            EnsureType(),               # S'assurer que l'image est un tenseur PyTorch
             Lambda(lambda x: x[:3, :, :] if x.shape[0] == 4 else x),  # S'assurer que l'image a 3 canaux
         ])
         
         # Appliquer les transformations
-        input_tensor = preprocess(image_np)
+        input_tensor = preprocess(temp_image_path)
         input_tensor = torch.unsqueeze(input_tensor, 0)  # Ajouter une dimension batch
 
         # Faire l'inférence
@@ -148,6 +151,10 @@ if uploaded_file is not None:
         st.error(f"Erreur lors du chargement du modèle : {e}")
     except RuntimeError as e:
         st.error(f"Erreur lors du prétraitement ou de l'inférence : {e}")
+    finally:
+        # Supprimer le fichier temporaire
+        if os.path.exists(temp_image_path):
+            os.remove(temp_image_path)
 
 # 📌 Composante d'analyse
 st.header("📊 Analyse des résultats")
